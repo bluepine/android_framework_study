@@ -1,0 +1,6 @@
+plan:
+
+write a hello world dalvik class
+
+send command to zygote socket to fork a new process and run a hello world dalvik class
+
