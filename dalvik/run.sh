@@ -1,3 +1,4 @@
 #!/bin/bash
-adb push foo.jar /sdcard
-adb shell dalvikvm -cp /sdcard/foo.jar Foo
+adb shell mkdir /mnt/sdcard/tmp
+adb push foo.jar /mnt/sdcard/tmp
+adb shell dalvikvm -cp /mnt/sdcard/tmp/foo.jar Foo
