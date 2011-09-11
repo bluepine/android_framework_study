@@ -9,6 +9,6 @@ LOCAL_C_INCLUDES :=
 
 LOCAL_CFLAGS := 
 
-LOCAL_MODULE := dvz 
+LOCAL_MODULE := dvz-jni
 
 include $(BUILD_EXECUTABLE)
