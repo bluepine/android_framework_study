@@ -44,157 +44,154 @@ static void replace_nl(char *str);
  */
 static int send_request(int fd, int sendStdio, int argc, const char **argv)
 {
-#ifndef HAVE_ANDROID_OS
-    // not supported on simulator targets
-    //LOGE("zygote_* not supported on simulator targets");
+  uint32_t pid;
+  int i;
+  struct iovec ivs[2];
+  struct msghdr msg;
+  char argc_buffer[12];
+  const char *newline_string = "\n";
+  struct cmsghdr *cmsg;
+  char msgbuf[CMSG_SPACE(sizeof(int) * 3)];
+  int *cmsg_payload;
+  ssize_t ret;
+
+  memset(&msg, 0, sizeof(msg));
+  memset(&ivs, 0, sizeof(ivs));
+
+  // First line is arg count 
+  snprintf(argc_buffer, sizeof(argc_buffer), "%d\n", argc);
+
+  ivs[0].iov_base = argc_buffer;
+  ivs[0].iov_len = strlen(argc_buffer);
+
+  msg.msg_iov = ivs;
+  msg.msg_iovlen = 1;
+
+  if (sendStdio != 0) {
+    // Pass the file descriptors with the first write
+    msg.msg_control = msgbuf;
+    msg.msg_controllen = sizeof msgbuf;
+
+    cmsg = CMSG_FIRSTHDR(&msg);
+
+    cmsg->cmsg_len = CMSG_LEN(3 * sizeof(int));
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type = SCM_RIGHTS;
+
+    cmsg_payload = (int *)CMSG_DATA(cmsg);
+    cmsg_payload[0] = STDIN_FILENO;
+    cmsg_payload[1] = STDOUT_FILENO;
+    cmsg_payload[2] = STDERR_FILENO;
+  }
+
+  do {
+    ret = sendmsg(fd, &msg, MSG_NOSIGNAL);
+  } while (ret < 0 && errno == EINTR);
+
+  if (ret < 0) {
     return -1;
-#else /* HAVE_ANDROID_OS */
-    uint32_t pid;
-    int i;
-    struct iovec ivs[2];
-    struct msghdr msg;
-    char argc_buffer[12];
-    const char *newline_string = "\n";
-    struct cmsghdr *cmsg;
-    char msgbuf[CMSG_SPACE(sizeof(int) * 3)];
-    int *cmsg_payload;
-    ssize_t ret;
+  }
 
-    memset(&msg, 0, sizeof(msg));
-    memset(&ivs, 0, sizeof(ivs));
+  // Only send the fd's once
+  msg.msg_control = NULL;
+  msg.msg_controllen = 0;
 
-    // First line is arg count 
-    snprintf(argc_buffer, sizeof(argc_buffer), "%d\n", argc);
+  // replace any newlines with spaces and send the args
+  for (i = 0; i < argc; i++) {
+    char *tofree = NULL;
+    const char *toprint;
 
-    ivs[0].iov_base = argc_buffer;
-    ivs[0].iov_len = strlen(argc_buffer);
+    toprint = argv[i];
 
-    msg.msg_iov = ivs;
-    msg.msg_iovlen = 1;
-
-    if (sendStdio != 0) {
-        // Pass the file descriptors with the first write
-        msg.msg_control = msgbuf;
-        msg.msg_controllen = sizeof msgbuf;
-
-        cmsg = CMSG_FIRSTHDR(&msg);
-
-        cmsg->cmsg_len = CMSG_LEN(3 * sizeof(int));
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-
-        cmsg_payload = (int *)CMSG_DATA(cmsg);
-        cmsg_payload[0] = STDIN_FILENO;
-        cmsg_payload[1] = STDOUT_FILENO;
-        cmsg_payload[2] = STDERR_FILENO;
+    if (strchr(toprint, '\n') != NULL) {
+      tofree = strdup(toprint);
+      toprint = tofree;
+      replace_nl(tofree);
     }
 
+    ivs[0].iov_base = (char *)toprint;
+    printf("ivs[0].iov_base:%s\n", ivs[0].iov_base);
+    ivs[0].iov_len = strlen(toprint);
+    ivs[1].iov_base = (char *)newline_string;
+    ivs[1].iov_len = 1;
+
+    msg.msg_iovlen = 2;
+
     do {
-        ret = sendmsg(fd, &msg, MSG_NOSIGNAL);
+      ret = sendmsg(fd, &msg, MSG_NOSIGNAL);
+    } while (ret < 0 && errno == EINTR);
+
+    if (tofree != NULL) {
+      free(tofree);
+    }
+
+    if (ret < 0) {
+      return -1;
+    }
+  }
+
+  // Read the pid, as a 4-byte network-order integer
+
+  ivs[0].iov_base = &pid;
+  ivs[0].iov_len = sizeof(pid);
+  msg.msg_iovlen = 1;
+
+  do {
+    do {
+      ret = recvmsg(fd, &msg, MSG_NOSIGNAL | MSG_WAITALL);
     } while (ret < 0 && errno == EINTR);
 
     if (ret < 0) {
-        return -1;
+      return -1;
     }
 
-    // Only send the fd's once
-    msg.msg_control = NULL;
-    msg.msg_controllen = 0;
+    ivs[0].iov_len -= ret;
+    ivs[0].iov_base += ret;
+  } while (ivs[0].iov_len > 0);
 
-    // replace any newlines with spaces and send the args
-    for (i = 0; i < argc; i++) {
-        char *tofree = NULL;
-        const char *toprint;
+  pid = ntohl(pid);
 
-        toprint = argv[i];
-
-        if (strchr(toprint, '\n') != NULL) {
-            tofree = strdup(toprint);
-            toprint = tofree;
-            replace_nl(tofree);
-        }
-
-        ivs[0].iov_base = (char *)toprint;
-        ivs[0].iov_len = strlen(toprint);
-        ivs[1].iov_base = (char *)newline_string;
-        ivs[1].iov_len = 1;
-
-        msg.msg_iovlen = 2;
-
-        do {
-            ret = sendmsg(fd, &msg, MSG_NOSIGNAL);
-        } while (ret < 0 && errno == EINTR);
-
-        if (tofree != NULL) {
-            free(tofree);
-        }
-
-        if (ret < 0) {
-            return -1;
-        }
-    }
-
-    // Read the pid, as a 4-byte network-order integer
-
-    ivs[0].iov_base = &pid;
-    ivs[0].iov_len = sizeof(pid);
-    msg.msg_iovlen = 1;
-
-    do {
-        do {
-            ret = recvmsg(fd, &msg, MSG_NOSIGNAL | MSG_WAITALL);
-        } while (ret < 0 && errno == EINTR);
-
-        if (ret < 0) {
-            return -1;
-        }
-
-        ivs[0].iov_len -= ret;
-        ivs[0].iov_base += ret;
-    } while (ivs[0].iov_len > 0);
-
-    pid = ntohl(pid);
-
-    return pid;
-#endif /* HAVE_ANDROID_OS */
+  return pid;
 }
 
 int zygote_run_wait(int argc, const char **argv, void (*post_run_func)(int))
 {
-    int fd;
-    int pid;
-    int err;
-    const char *newargv[argc + 1];
+  int fd;
+  int pid;
+  int err;
+  const char *newargv[argc + 1];
 
-    fd = socket_local_client(ZYGOTE_SOCKET, 
-            ANDROID_SOCKET_NAMESPACE_RESERVED, AF_LOCAL);
+  fd = socket_local_client(ZYGOTE_SOCKET, 
+			   ANDROID_SOCKET_NAMESPACE_RESERVED, AF_LOCAL);
 
-    if (fd < 0) {
-        return -1;
-    }
+  if (fd < 0) {
+    printf("socket_local_client failed\n");
+    return -1;
+  }
 
-    // The command socket is passed to the peer as close-on-exec
-    // and will close when the peer dies
-    newargv[0] = "--peer-wait";
-    memcpy(newargv + 1, argv, argc * sizeof(*argv)); 
+  // The command socket is passed to the peer as close-on-exec
+  // and will close when the peer dies
+  newargv[0] = "--peer-wait";
+  memcpy(newargv + 1, argv, argc * sizeof(*argv)); 
 
-    pid = send_request(fd, 1, argc + 1, newargv);
+  pid = send_request(fd, 1, argc + 1, newargv);
 
-    if (pid > 0 && post_run_func != NULL) {
-        post_run_func(pid);
-    }
 
-    // Wait for socket to close
-    do {
-        int dummy;
-        err = read(fd, &dummy, sizeof(dummy));
-    } while ((err < 0 && errno == EINTR) || err != 0);
+  if (pid > 0 && post_run_func != NULL) {
+    post_run_func(pid);
+  }
 
-    do {
-        err = close(fd);
-    } while (err < 0 && errno == EINTR);
+  // Wait for socket to close
+  do {
+    int dummy;
+    err = read(fd, &dummy, sizeof(dummy));
+  } while ((err < 0 && errno == EINTR) || err != 0);
 
-    return 0;
+  do {
+    err = close(fd);
+  } while (err < 0 && errno == EINTR);
+
+  return 0;
 }
 
 /**
@@ -215,40 +212,40 @@ int zygote_run_wait(int argc, const char **argv, void (*post_run_func)(int))
  */
 int zygote_run_oneshot(int sendStdio, int argc, const char **argv) 
 {
-    int fd = -1;
-    int err;
-    int i;
-    int retries;
-    int pid;
-    const char **newargv = argv;
-    const int newargc = argc;
+  int fd = -1;
+  int err;
+  int i;
+  int retries;
+  int pid;
+  const char **newargv = argv;
+  const int newargc = argc;
 
-    for (retries = 0; (fd < 0) && (retries < ZYGOTE_RETRY_COUNT); retries++) {
-        if (retries > 0) { 
-            struct timespec ts;
+  for (retries = 0; (fd < 0) && (retries < ZYGOTE_RETRY_COUNT); retries++) {
+    if (retries > 0) { 
+      struct timespec ts;
 
-            memset(&ts, 0, sizeof(ts));
-            ts.tv_nsec = ZYGOTE_RETRY_MILLIS * 1000 * 1000;
+      memset(&ts, 0, sizeof(ts));
+      ts.tv_nsec = ZYGOTE_RETRY_MILLIS * 1000 * 1000;
 
-            do {
-                err = nanosleep (&ts, &ts);
-            } while (err < 0 && errno == EINTR);
-        }
-        fd = socket_local_client(ZYGOTE_SOCKET, AF_LOCAL, 
-                ANDROID_SOCKET_NAMESPACE_RESERVED);
+      do {
+	err = nanosleep (&ts, &ts);
+      } while (err < 0 && errno == EINTR);
     }
+    fd = socket_local_client(ZYGOTE_SOCKET, AF_LOCAL, 
+			     ANDROID_SOCKET_NAMESPACE_RESERVED);
+  }
 
-    if (fd < 0) {
-        return -1;
-    }
+  if (fd < 0) {
+    return -1;
+  }
 
-    pid = send_request(fd, 0, newargc, newargv);
+  pid = send_request(fd, 0, newargc, newargv);
 
-    do {
-        err = close(fd);
-    } while (err < 0 && errno == EINTR);
+  do {
+    err = close(fd);
+  } while (err < 0 && errno == EINTR);
 
-    return pid;
+  return pid;
 }
 
 /**
@@ -256,12 +253,9 @@ int zygote_run_oneshot(int sendStdio, int argc, const char **argv)
  */
 static void replace_nl(char *str)
 {
-    for(; *str; str++) {
-        if (*str == '\n') {
-            *str = ' ';
-        }
+  for(; *str; str++) {
+    if (*str == '\n') {
+      *str = ' ';
     }
+  }
 }
-
-
-
