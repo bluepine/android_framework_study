@@ -7,28 +7,20 @@
   <target name="compile">
     <mkdir dir="build/classes"/>
     <javac srcdir="ddmlib/src/" destdir="build/classes"/>
+    <javac srcdir="process_scanner/src" destdir="build/classes"/>
   </target>
 
-  <target name="jar">
+  <target name="jar" depends="compile">
     <mkdir dir="build/jar"/>
     <jar destfile="build/jar/process_scanner.jar" basedir="build/classes">
       <manifest>
-	<attribute name="Main-Class" value="oata.HelloWorld"/>
+	<attribute name="Main-Class" value="APScan"/>
       </manifest>
     </jar>
   </target>
 
-  <!-- <target name="jar"> -->
-  <!--   <mkdir dir="build/jar"/> -->
-  <!--   <jar destfile="build/jar/HelloWorld.jar" basedir="build/classes"> -->
-  <!--     <manifest> -->
-  <!-- 	<attribute name="Main-Class" value="oata.HelloWorld"/> -->
-  <!--     </manifest> -->
-  <!--   </jar> -->
-  <!-- </target> -->
-
-  <!-- <target name="run"> -->
-  <!--   <java jar="build/jar/HelloWorld.jar" fork="true"/> -->
-  <!-- </target> -->
+  <target name="run" depends="jar">
+    <java jar="build/jar/process_scanner.jar" fork="true"/>
+  </target>
 
 </project>
