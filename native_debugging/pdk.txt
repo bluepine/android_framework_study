@@ -1,0 +1,2 @@
+http://www.kandroid.org/online-pdk/guide/debugging_gdb.html
+the one on the main site is removed for now. 
