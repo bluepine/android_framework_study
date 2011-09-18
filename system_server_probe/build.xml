@@ -1,0 +1,32 @@
+<project>
+
+  <target name="clean">
+    <delete dir="build"/>
+  </target>
+
+  <target name="compile">
+    <mkdir dir="build/classes"/>
+    <javac classpath="/Users/song/adk/android-sdk-mac_x86/platforms/android-10/android.jar" srcdir="src/" destdir="build/classes"/>
+  </target>
+
+  <target name="jar" depends="compile">
+    <mkdir dir="build/jar"/>
+    <exec executable="dx">
+      <arg value="--dex"/>
+      <arg value="--output=build/jar/ssp.jar"/>
+      <arg value="build/classes"/>
+    </exec>
+    <!-- <jar destfile="build/jar/ssp.jar" basedir="build/classes"> -->
+    <!--   <manifest> -->
+    <!-- 	<attribute name="Main-Class" value="SystemServerProbe"/> -->
+    <!--   </manifest> -->
+    <!-- </jar> -->
+  </target>
+
+  <target name="run" depends="jar">
+    <exec executable="sh">
+      <arg value="run.sh"/>
+    </exec>
+  </target>
+
+</project>
