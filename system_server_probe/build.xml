@@ -6,13 +6,15 @@
 
   <target name="compile">
     <mkdir dir="build/classes"/>
-    <javac classpath="/Users/song/adk/android-sdk-mac_x86/platforms/android-10/android.jar" srcdir="src/" destdir="build/classes"/>
+    <!-- <javac classpath="/Users/song/adk/android-sdk-mac_x86/platforms/android-10/android.jar" srcdir="src/" destdir="build/classes"/> -->
+    <javac classpath="../runtime_lib/classes.jar" srcdir="src/" destdir="build/classes" debug="true" debuglevel="lines, vars, and source"/> 
   </target>
 
   <target name="jar" depends="compile">
     <mkdir dir="build/jar"/>
     <exec executable="dx">
       <arg value="--dex"/>
+      <arg value="--debug"/>
       <arg value="--output=build/jar/ssp.jar"/>
       <arg value="build/classes"/>
     </exec>

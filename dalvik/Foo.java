@@ -4,3 +4,4 @@ class Foo {
 	System.out.println("sdk int:"+Build.VERSION.SDK_INT+"\n"); 
     }
 }
+e
