@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="/Users/song/git/android_framework_study/runtime_lib/classes-full-debug.jar" sourcepath="/Users/song/git/android/base/core/java"/>
+	<classpathentry kind="lib" path="/Users/song/adk/android-sdk-mac_x86/platforms/android-10/android.jar" sourcepath="/Users/song/git/android/base/core/java"/>
+	<classpathentry kind="output" path="build"/>
+</classpath>
