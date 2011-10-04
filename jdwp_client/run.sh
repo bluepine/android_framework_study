@@ -1,0 +1,2 @@
+jdb -J-Duser.home=. -connect com.sun.jdi.SocketAttach:hostname=localhost,port=8601
+#adb -d shell am start -e debug true -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n com.thirdwhale/com.thirdwhale.activity.SplashActivity
