@@ -1,1 +1,0 @@
-use traceview code to parse method profiling dump and write it into a text file.
