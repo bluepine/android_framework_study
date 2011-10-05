@@ -41,8 +41,8 @@ public class TimeLineView {
     }
 
     public static class Record {
-        Row row;
-        Block block;
+        public Row row;
+        public Block block;
 
         public Record(Row row, Block block) {
             this.row = row;
