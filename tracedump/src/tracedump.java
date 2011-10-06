@@ -12,6 +12,13 @@ public class tracedump {
 	public static boolean include_method(MethodData d) {
 		// boolean include = false;
 		String class_name = d.getClassName();
+		String method_name = d.getMethodName();
+		if (method_name != null) {
+			if (method_name.indexOf("println") >= 0) {
+				return false;
+			}
+		}
+
 		if (class_name.indexOf("Thread") >= 0) {
 			return true;
 		}
@@ -24,7 +31,7 @@ public class tracedump {
 		if (class_name.indexOf("apache") >= 0) {
 			return true;
 		}
-		
+
 		if (class_name.equals("(context switch)")) {
 			return true;
 		}
@@ -40,6 +47,8 @@ public class tracedump {
 	 * @param args
 	 */
 	public static void main(String[] args) {
+		int maxStackLevel = 0;
+		int stackLimit = 50;
 		ThreadData[] tda;
 		DmTraceReader reader = null;
 		HashMap<Integer, Stack<Long>> threadStackMap = null;
@@ -47,12 +56,14 @@ public class tracedump {
 		Long endtime, startTime;
 		int i;
 		boolean contextSwitch;
-		
+
 		System.out.println(args.length);
-		if (args.length != 1) {
+		if (args.length < 1 || args.length > 2) {
 			return;
 		}
-
+		if(args.length == 2){
+			stackLimit = Integer.parseInt(args[1]);
+		}
 		// TODO Auto-generated method stub
 		try {
 			reader = new DmTraceReader(args[0], false);
@@ -62,7 +73,7 @@ public class tracedump {
 		}
 		tda = reader.getThreads();
 		threadStackMap = new HashMap<Integer, Stack<Long>>(tda.length);
-		for(i=0; i<tda.length; i++){
+		for (i = 0; i < tda.length; i++) {
 			threadStackMap.put(tda[i].getId(), new Stack<Long>());
 		}
 		ArrayList<TimeLineView.Record> records = reader.getThreadTimeRecords();
@@ -88,7 +99,7 @@ public class tracedump {
 					// a function call returned
 					threadStack.pop();
 				} else {
-					if(threadStack.peek() < endtime){
+					if (threadStack.peek() < endtime) {
 						System.out.println("stack prediction error!");
 					}
 					break;
@@ -100,19 +111,26 @@ public class tracedump {
 			} else {
 				contextSwitch = true;
 			}
-			//if (include_method(data)) {
-			if(true){
-				for(i=0; i<threadStack.size(); i++){
-					System.out.print("  ");
+			if (threadStack.size() > maxStackLevel) {
+				maxStackLevel = threadStack.size();
+			}
+			if (threadStack.size() <= stackLimit) {
+				//if (include_method(data)) {
+					 if(true){
+
+					for (i = 0; i < threadStack.size(); i++) {
+						System.out.print("  ");
+					}
+					System.out.println(data.getClassName() + '.'
+							+ data.getMethodName() + "          ::"
+							+ +block.getStartTime() + "::" + block.getEndTime()
+							+ "::" + threadStack.size() + "::" + row.getName());
 				}
-				System.out.println(data.getClassName() + '.'
-						+ data.getMethodName() + "::" + +block.getStartTime()
-						+ "::" + block.getEndTime() + "::" + threadStack.size()
-						+ "::" + row.getName());
 			}
 			if (contextSwitch) {
-	System.out.println("--------------------------");
+				System.out.println("--------------------------");
 			}
 		}
+		System.out.println("max stack level is " + maxStackLevel);
 	}
 }
