@@ -19,7 +19,7 @@ package com.android.traceview;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-class ThreadData implements TimeLineView.Row {
+public class ThreadData implements TimeLineView.Row {
 
     private int mId;
     private String mName;
